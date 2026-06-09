@@ -60,23 +60,31 @@ def color_percent(val):
         return ""
 
 
+def highlight_percent_columns(row):
+    styles = []
+
+    for col, val in row.items():
+        if "%" in col:
+            styles.append(color_percent(val))
+        else:
+            styles.append("")
+
+    return styles
+
+
 @st.cache_data(ttl=300)
 def load_data():
     raw = pd.read_csv(CSV_URL, header=None, dtype=str)
 
-    # DLAR sometimes exports as one tab-separated column.
     if raw.shape[1] == 1:
         raw = raw[0].str.split("\t", expand=True)
 
-    # Row 4 = company average row
-    # Row 5 = header row
     average_row = raw.iloc[3].copy()
     headers = raw.iloc[4].astype(str).str.strip()
 
     df = raw.iloc[5:].copy()
     df.columns = headers
 
-    # Remove blank / bad columns
     df = df.loc[:, ~df.columns.astype(str).str.lower().isin(["nan", "none", ""])]
     df.columns = df.columns.astype(str).str.strip()
 
@@ -142,7 +150,6 @@ def load_data():
     existing_columns = [col for col in columns_to_show if col in filtered.columns]
     filtered = filtered[existing_columns]
 
-    # Clean percent display
     for col in filtered.columns:
         if "%" in col:
             filtered[col] = filtered[col].apply(clean_percent)
@@ -189,13 +196,10 @@ else:
     col3.metric("Company Avg Current 4MR%", "N/A")
 
 
-percent_columns = [col for col in df_view.columns if "%" in col]
-
-styled_df = df_view.style
-
-for col in percent_columns:
-    styled_df = styled_df.applymap(color_percent, subset=[col])
-
+styled_df = df_view.style.apply(
+    highlight_percent_columns,
+    axis=1
+)
 
 st.dataframe(
     styled_df,
